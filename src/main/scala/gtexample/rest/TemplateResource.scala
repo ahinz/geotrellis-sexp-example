@@ -8,6 +8,9 @@ import geotrellis.data._
 import scala.collection.JavaConversions._
 import com.typesafe.config.ConfigFactory
 
+import java.io.File
+import scala.sys.process.Process
+
 object S {
   val server = process.Server("server")
 
@@ -22,15 +25,29 @@ object S {
   0)
 """
 
-  val services = Map(new java.io.File(ConfigFactory.load()
-    .getString("geotrellis.servicedir"))
-    .listFiles()
-    .filter(_.getName().endsWith(".svc"))
-    .map({ f =>
+  val serviceLoaders:Map[String,File => String] = Map(
+    ".svc" -> { f: File =>
       val fname = f.getName()
       println(s"Loading service from file $fname")
-      scala.io.Source.fromFile(f).mkString
+      scala.io.Source.fromFile(f).mkString },
+    ".py" -> { f: File =>
+      val fname = f.getName()
+      println(s"Python loader $fname")
+      Process(s"python $fname", Some(f.getParentFile()))!!
     })
+
+  def loadFile(f: File):Option[String] =
+    serviceLoaders
+      .filter(kv => f.getName().endsWith(kv._1) &&
+        !f.getName().startsWith(".#"))
+      .values
+      .headOption
+      .map(loaderfn => loaderfn(f))
+
+  val services = Map(new File(ConfigFactory.load()
+    .getString("geotrellis.servicedir"))
+    .listFiles()
+    .flatMap(file => loadFile(file))
     .map(s => Parser.service(s))
     .map(s => (s.name, s)):_*)
 }

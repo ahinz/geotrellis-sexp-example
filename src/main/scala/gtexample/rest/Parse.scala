@@ -84,7 +84,9 @@ object Parser {
 
       val constr = clazz.getConstructors()
         .filter(_.getParameterTypes().length == nargs)
-        .head
+        .headOption
+        .getOrElse(sys.error(
+          s"Could not find constructor for $clazz with $nargs args"))
 
       constr.newInstance(args.map(a =>
         toOp(a, run, symbols)):_*).asInstanceOf[Op[Any]]

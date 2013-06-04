@@ -52,6 +52,34 @@ It will be loaded and wired up to:
 http://localhost:8888/service/simple-render?raster=<some raster>
 ```
 
+## Python Services
+
+Services can be written in python as well. Anything files ending in py
+inside the autoload directory will be parsed.
+
+By default the "pyrender" service is loaded via python.
+
+Here's a python example:
+
+```python
+from geotrellis import *
+
+raster = load_raster(user_param("string", "raster"))
+hist = histogram(raster)
+breaks = get_color_breaks(hist)
+png = render_png(raster, breaks, hist)
+
+service = Service("pyrender",[("raster","the raster to render")], png)
+
+run_service(service)
+
+```
+
+Right now you can only get a few GeoTrellis operations from the
+```geotrellis``` package (such as ```load_raster```, ```histogram```,
+etc). Only one service can be run per-file and should be run with the
+```run_service``` function.
+
 ## Transformations
 
 A baseline but buggy tree transformer attempts to
