@@ -1,10 +1,12 @@
 package gtexample
 
 import javax.ws.rs._
-import javax.ws.rs.core.Response
+import javax.ws.rs.core.{Response, UriInfo, Context => RContext}
 import geotrellis._
 import geotrellis.statistics.Histogram
 import geotrellis.data._
+import scala.collection.JavaConversions._
+import com.typesafe.config.ConfigFactory
 
 object S {
   val server = process.Server("server")
@@ -20,6 +22,17 @@ object S {
   0)
 """
 
+  val services = Map(new java.io.File(ConfigFactory.load()
+    .getString("geotrellis.servicedir"))
+    .listFiles()
+    .filter(_.getName().endsWith(".svc"))
+    .map({ f =>
+      val fname = f.getName()
+      println(s"Loading service from file $fname")
+      scala.io.Source.fromFile(f).mkString
+    })
+    .map(s => Parser.service(s))
+    .map(s => (s.name, s)):_*)
 }
 
 case class GetColorBreaks(h:Op[Histogram])
@@ -41,9 +54,54 @@ case class GetColorBreaks(h:Op[Histogram])
   }
 }
 
-/**
- * Simple hello world rest service that responds to "/hello"
- */
+@Path("/service")
+class Service {
+  @GET
+  @Path("")
+  def list() = {
+    val r = S.services.values.map(_.name).mkString("[\"","\",\"","\"]")
+
+    Response.ok()
+    .`type`("application/json")
+    .entity(r)
+    .build()
+  }
+
+  @GET
+  @Path("/{service}")
+  def svc(@PathParam("service") service: String,
+    @RContext context: UriInfo) = {
+    val now = System.nanoTime
+
+    val m = mapAsScalaMap(context.getQueryParameters()).toMap.mapValues(_.head)
+
+    val parseTree = S.services(service).applyParams(m)
+    val simp = Parser.walkTree(parseTree, Parser.findNonUniqueHashes(parseTree))
+
+    val op = Parser.toOp(simp, { o =>
+      println(s"[Preload] $o")
+      S.server.run(o)
+    })
+
+    println(op)
+
+    val r = S.server.run(op)
+
+    val mime = r match {
+      case _:Array[_] => "image/png"
+      case _ => "application/json"
+    }
+
+    val tdelta = (System.nanoTime - now) / 1000000
+    println("%d milliseconds".format(tdelta))
+
+    Response.ok()
+      .`type`(mime)
+      .entity(r)
+      .build()
+  }
+}
+
 @Path("/hello")
 class TemplateResource {
 
@@ -97,20 +155,3 @@ class TemplateResource {
       .build()
   }
 }
-
-  // def main(args: Array[String]) {
-  //   val s = SexpParse("""(RenderPng (Add (Load "1") (Load "2")) (Hist (Add (Load "1") (Load "2"))))""").head
-
-  //   val nonUniqueHashes = findNonUniqueHashes(s)
-  //   val simp = walkTree(s, nonUniqueHashes)
-
-  //   println("=====")
-  //   println(s)
-  //   println("=====")
-  //   println(simp)
-  //   println("=====")
-
-  //   val fn = FnNode("Load",Seq(StringLiteralNode("55")))
-  //   println(toOp(fn))
-  //   println(Server.run(toOp(s)))
-  // }

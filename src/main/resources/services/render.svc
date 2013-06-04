@@ -1,0 +1,11 @@
+(defservice "render")
+(defparam "raster" "Name of the raster to load")
+
+(geotrellis.io.RenderPng
+  (geotrellis.io.LoadRaster (user-param "string" "raster") null)
+  (gtexample.GetColorBreaks
+    (geotrellis.statistics.op.stat.GetHistogramMap
+      (geotrellis.io.LoadRaster (user-param "string" "raster") null)))
+  (geotrellis.statistics.op.stat.GetHistogramMap
+      (geotrellis.io.LoadRaster (user-param "string" "raster") null))
+  0)
