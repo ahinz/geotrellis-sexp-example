@@ -1,0 +1,12 @@
+{
+ "catalog": "Your Data Catalog",
+ "stores": [
+  {
+   "store": "data:fs",
+   "params": {
+     "type": "fs",
+     "path": "/home/ahinz/src/azavea/geotrellis/benchmark/src/main/resources/sbn/"
+   }
+  }
+ ]
+}
